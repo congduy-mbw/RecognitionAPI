@@ -1,6 +1,6 @@
 from config import PROJECT_ROOT, RECOGNITION_API_KEY
 from deepvision import DeepVision
-from deepvision.service import ProductRecognitionService, ProductCountService
+from deepvision.service import ProductRecognitionService, ProductCountService, OnShelfAvailabilityService
 from deepvision.collections import Products, ProductCollection
 
 deep_vision: DeepVision = DeepVision(vectordb_dir=PROJECT_ROOT)
@@ -25,9 +25,9 @@ async def delete_product(collection_name: str, product_id: str):
     products.delete_product_by_id(collection_name, product_id)
 
 #Xóa tất cả ảnh của một sản phẩm
-async def delete_all_images_product(collection_name: str, product_id: str):
+async def delete_all_images_product(collection_name: str, product_name: str):
     product_collection: ProductCollection = product_recognition.get_product_collection()
-    product_collection.delete_all_examples_by_id(collection_name, product_id)
+    product_collection.delete_all(collection_name, product_name)
 
 #Xóa danh mục dựa theo tên danh mục
 async def delete_collection(collection_name: str):
@@ -38,3 +38,10 @@ async def delete_collection(collection_name: str):
 async def count_product(collection_name: str, image_paths: list[str]):
     count_product = count_recognition.count(collection_name=collection_name, image_path=image_paths)
     return count_product
+
+#Kiểm tra sản phẩm tồn tại trên gian hàng
+async def shelf_availability_product(collection_name: str, image_paths: list[str], product_checks: dict, sku_threshold: float):
+    deep_vision_audit: DeepVision = DeepVision(vectordb_dir=PROJECT_ROOT, sku_threshold=sku_threshold)
+    on_shelf_availibility: OnShelfAvailabilityService = deep_vision_audit.init_on_shelf_availability_service(RECOGNITION_API_KEY)
+    availibility_res = on_shelf_availibility.run(collection_name, image_paths, product_checks)
+    return availibility_res

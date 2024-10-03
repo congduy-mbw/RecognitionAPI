@@ -6,6 +6,6 @@ router = APIRouter(
     tags=["Collections"]
 )
 
-@router.delete("/{collection_id}")
+@router.delete("/{collection_id}", summary="Xóa danh mục sản phẩm")
 async def delete_collection(collection_id: str):
     await product_ai.delete_collection(collection_id)
