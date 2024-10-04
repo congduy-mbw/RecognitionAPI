@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
+from typing import Annotated
 from controllers import product_ai
 from models.product import ProductCreateIn, ProductCreateOut, ImageInfo, ProductUpdateNameIn, ProductUpdateImageIn, ProductRecognitionCountIn, ProductShelfAvailibilityIn
 import uuid
@@ -14,7 +15,20 @@ router = APIRouter(
 )
 
 @router.post("", response_model=ProductCreateOut, summary="Thêm ảnh sản phẩm cho mô hình")
-async def create_product(item: ProductCreateIn):
+async def create_product(item: Annotated[
+            ProductCreateIn,
+            Body(
+                examples=[
+                    {
+                        "collection_name": "danh_muc_1",
+                        "product_name": "Cá Trứng",
+                        "image_paths": [
+                            "https://ancuisine.mbwcloud.com/files/05a4ceae-d1da-4480-8b79-a2cdc8968d80.png","https://ancuisine.mbwcloud.com/files/98a9455c-b941-4e74-935b-63e196b398ff.png"
+                        ]
+                    }
+                ]
+            )
+]):
     if item.collection_name is None or item.collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
     if item.product_name is None or item.product_name == "":
@@ -36,7 +50,15 @@ async def create_product(item: ProductCreateIn):
     )  
 
 @router.put("/{product_id}/name", summary="Cập nhật tên sản phẩm trong mô hình")
-async def update_name_product(product_id: str, item: ProductUpdateNameIn):
+async def update_name_product(product_id: str, item: Annotated[
+    ProductUpdateNameIn,
+    Body(examples=[
+        {
+            "collection_name": "danh_muc_1",
+            "product_new_name": "Cá Trứng Mới"
+        }
+    ])
+]):
     if item.collection_name is None or item.collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
     if item.product_new_name is None or item.product_new_name == "":
@@ -44,7 +66,21 @@ async def update_name_product(product_id: str, item: ProductUpdateNameIn):
     await product_ai.update_name_product(item.collection_name, product_id, item.product_new_name)
 
 @router.put("/{product_id}/images", summary="Cập nhật ảnh sản phẩm trong mô hình")
-async def update_images_product(product_id: str, item: ProductUpdateImageIn):
+async def update_images_product(product_id: str, item: Annotated[
+    ProductUpdateImageIn,
+    Body(examples=[
+        {
+            "collection_name": "danh_muc_1",
+            "product_name": "Cá Trứng",
+            "image_paths": [
+                {
+                    "id": "d0f55058-3798-4262-b7f7-9e41b0ee6090",
+                    "url": "https://ancuisine.mbwcloud.com/files/bca828aa-cf1a-4427-801c-0d868d0b335c.png"
+                }
+            ]
+        }
+    ])
+]):
     if item.collection_name is None or item.collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
     if product_id is None or product_id == "":
@@ -70,7 +106,15 @@ async def delete_product(product_id: str, collection_name: str):
     await product_ai.delete_product(collection_name, product_id)
 
 @router.post("/count_recognition", summary="Đếm số lượng sản phẩm")
-async def count_recognition(item: ProductRecognitionCountIn):
+async def count_recognition(item: Annotated[
+    ProductRecognitionCountIn,
+    Body(examples=[
+        {
+            "collection_name": "danh_muc_1",
+            "image_paths": ["https://ancuisine.mbwcloud.com/files/gian_hang_catrung2907d0.jpg"]
+        }
+    ])
+]):
     if item.collection_name is None or item.collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
     product_count = await product_ai.count_product(item.collection_name, item.image_paths)
@@ -102,7 +146,18 @@ async def count_recognition(item: ProductRecognitionCountIn):
         raise HTTPException(status_code=500, detail="Error Server AI")
 
 @router.post("/shelf_availibility", summary="Kiểm tra sản phẩm tồn tại dựa theo điều kiện tồn tại")
-async def shelf_availibility(item: ProductShelfAvailibilityIn):
+async def shelf_availibility(item: Annotated[
+    ProductShelfAvailibilityIn,
+    Body(examples=[
+        {
+            "collection_name": "danh_muc_1",
+            "image_paths": ["https://ancuisine.mbwcloud.com/files/gian_hang_catrung2907d0.jpg"],
+            "product_checks": {
+                "Cá Trứng": 1
+            }
+        }
+    ])
+]):
     if item.collection_name is None or item.collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
     response = await product_ai.shelf_availability_product(item.collection_name, item.image_paths, item.product_checks, item.sku_threshold)
