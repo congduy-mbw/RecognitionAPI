@@ -1,8 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Union
 
 class ImageInfo(BaseModel):
-    id: str
+    id: Union[str, None] = None
     url: str
 
 class ProductBase(BaseModel):

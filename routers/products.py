@@ -14,7 +14,7 @@ router = APIRouter(
     tags=["Products"]
 )
 
-@router.post("", response_model=ProductCreateOut, summary="Thêm ảnh sản phẩm cho mô hình")
+@router.post("", response_model=ProductCreateOut, summary="Thêm sản phẩm cho mô hình", description="Dịch vụ thêm sản phẩm với ảnh sản phẩm vào mô hình học máy")
 async def create_product(item: Annotated[
             ProductCreateIn,
             Body(
@@ -49,7 +49,7 @@ async def create_product(item: Annotated[
         image_paths = images_info
     )  
 
-@router.put("/{product_id}/name", summary="Cập nhật tên sản phẩm trong mô hình")
+@router.put("/{product_id}/name", summary="Cập nhật tên sản phẩm trong mô hình", description="Dịch vụ cập nhật lại tên sản phẩm trong mô hình dựa theo mã sản phẩm đã trả về khi tạo")
 async def update_name_product(product_id: str, item: Annotated[
     ProductUpdateNameIn,
     Body(examples=[
@@ -65,7 +65,7 @@ async def update_name_product(product_id: str, item: Annotated[
         raise HTTPException(status_code=404, detail="Product name is not empty")
     await product_ai.update_name_product(item.collection_name, product_id, item.product_new_name)
 
-@router.put("/{product_id}/images", summary="Cập nhật ảnh sản phẩm trong mô hình")
+@router.put("/{product_id}/images", summary="Cập nhật ảnh sản phẩm trong mô hình", description="Dịch vụ cập nhật ảnh sản phẩm dựa theo mã sản phẩm. Nếu id ảnh sản phẩm không có thì mô hình hiểu là thêm mới ảnh sản phẩm")
 async def update_images_product(product_id: str, item: Annotated[
     ProductUpdateImageIn,
     Body(examples=[
@@ -85,27 +85,33 @@ async def update_images_product(product_id: str, item: Annotated[
         raise HTTPException(status_code=404, detail="Collection name is not empty")
     if product_id is None or product_id == "":
         raise HTTPException(status_code=404, detail="Product id is not empty")
-    image_paths = [item_image.url for item_image in item.image_paths]
-    image_ids = [item_image.id for item_image in item.image_paths]
+    image_paths = []
+    image_ids = []
+    for item_image in item.image_paths:
+        if item_image.id is None or item_image.id == "":
+            image_ids.append(str(uuid.uuid4()))
+        else:
+            image_ids.append(item_image.id)
+        image_paths.append(item_image.url)
     await product_ai.add_or_update_product(item.collection_name, product_id, item.product_name, image_paths, image_ids)
 
-@router.delete("/{product_id}/images", summary="Xóa toàn bộ ảnh của một sản phẩm trong mô hình")
-async def delete_images_product(product_id: str, collection_name: str):
+@router.delete("/{product_name}/images", summary="Xóa toàn bộ ảnh của một sản phẩm trong mô hình", description="Dịch vụ xóa toàn bộ ảnh sản phẩm dựa theo tên sản phẩm và tên danh mục")
+async def delete_images_product(product_name: str, collection_name: str):
     if collection_name is None or collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
-    if product_id is None or product_id == "":
-        raise HTTPException(status_code=404, detail="Product id is not empty")
-    await product_ai.delete_product(collection_name, product_id)
+    if product_name is None or product_name == "":
+        raise HTTPException(status_code=404, detail="Product name is not empty")
+    await product_ai.delete_product(collection_name, product_name)
 
-@router.delete("/{product_id}", summary="Xóa sản phẩm khỏi mô hình")
-async def delete_product(product_id: str, collection_name: str):
+@router.delete("/{product_name}", summary="Xóa sản phẩm khỏi mô hình", description="Dịch vụ xóa sản phẩm khỏi mô hình học máy")
+async def delete_product(product_name: str, collection_name: str):
     if collection_name is None or collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
-    if product_id is None or product_id == "":
-        raise HTTPException(status_code=404, detail="Product id is not Empty")
-    await product_ai.delete_product(collection_name, product_id)
+    if product_name is None or product_name == "":
+        raise HTTPException(status_code=404, detail="Product name is not Empty")
+    await product_ai.delete_product(collection_name, product_name)
 
-@router.post("/count_recognition", summary="Đếm số lượng sản phẩm")
+@router.post("/count_recognition", summary="Đếm số lượng sản phẩm", description="Dịch vụ trả về số lượng sản phẩm có trong ảnh chụp gian hàng trưng bày sản phẩm")
 async def count_recognition(item: Annotated[
     ProductRecognitionCountIn,
     Body(examples=[
@@ -143,9 +149,9 @@ async def count_recognition(item: Annotated[
         #         cv2.imwrite(f"{UPLOAD_DIRECTORY}/image_bbox_{time_string}.png", image)
         return product_count
     else:
-        raise HTTPException(status_code=500, detail="Error Server AI")
+        raise HTTPException(status_code=500, detail="Error Server AI: " + str(product_count))
 
-@router.post("/shelf_availibility", summary="Kiểm tra sản phẩm tồn tại dựa theo điều kiện tồn tại")
+@router.post("/shelf_availibility", summary="Kiểm tra sản phẩm tồn tại dựa theo điều kiện tồn tại", description="Dịch vụ kiểm tra sự tồn tại của sản phẩm trong ảnh trưng bày gian hàng theo điều kiện tồn tại sản phẩm")
 async def shelf_availibility(item: Annotated[
     ProductShelfAvailibilityIn,
     Body(examples=[
@@ -164,5 +170,5 @@ async def shelf_availibility(item: Annotated[
     if response["status"] == "completed":
         return response
     else:
-        raise HTTPException(status_code=500, detail="Error Server AI")
+        raise HTTPException(status_code=500, detail="Error Server AI: " + str(response))
 

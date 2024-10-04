@@ -20,9 +20,9 @@ async def update_name_product(collection_name: str, product_id: str, new_name: s
     products.update_by_id(collection_name, product_id, new_name)
 
 #Xóa một sản phẩm trong danh mục
-async def delete_product(collection_name: str, product_id: str):
+async def delete_product(collection_name: str, product_name: str):
     products: Products = product_recognition.get_products()
-    products.delete_product_by_id(collection_name, product_id)
+    products.delete_product_by_id(collection_name, product_name)
 
 #Xóa tất cả ảnh của một sản phẩm
 async def delete_all_images_product(collection_name: str, product_name: str):
