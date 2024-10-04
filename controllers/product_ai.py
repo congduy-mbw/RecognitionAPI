@@ -1,6 +1,6 @@
 from config import PROJECT_ROOT, RECOGNITION_API_KEY
 from deepvision import DeepVision
-from deepvision.service import ProductRecognitionService, ProductCountService, OnShelfAvailabilityService
+from deepvision.service import ProductRecognitionService, ProductCountService, OnShelfAvailabilityService, ProductDetectionService
 from deepvision.collections import Products, ProductCollection
 
 deep_vision: DeepVision = DeepVision(vectordb_dir=PROJECT_ROOT)
@@ -45,3 +45,10 @@ async def shelf_availability_product(collection_name: str, image_paths: list[str
     on_shelf_availibility: OnShelfAvailabilityService = deep_vision_audit.init_on_shelf_availability_service(RECOGNITION_API_KEY)
     availibility_res = on_shelf_availibility.run(collection_name, image_paths, product_checks)
     return availibility_res
+
+#Lấy vùng bao sản phẩm từ ảnh
+async def detect_product_from_image(image_path: str):
+    deep_vision_detection: DeepVision = DeepVision(vectordb_dir=PROJECT_ROOT, options={})
+    detection: ProductDetectionService = deep_vision_detection.init_product_detection_service(RECOGNITION_API_KEY)
+    detection_product = detection.detect(image_path)
+    return detection_product

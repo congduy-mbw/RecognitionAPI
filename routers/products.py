@@ -172,3 +172,11 @@ async def shelf_availibility(item: Annotated[
     else:
         raise HTTPException(status_code=500, detail="Error Server AI: " + str(response))
 
+@router.post("/detection", summary="Trả về vùng bao sản phẩm", description="Dịch vụ trả về danh sách vùng bao các sản phẩm trong ảnh gian hàng")
+async def detect_product_from_image(image_path: Annotated[
+    str,
+    Body(example="https://ancuisine.mbwcloud.com/files/gian_hang_catrung2907d0.jpg")
+]):
+    detection_product = await product_ai.detect_product_from_image(image_path)
+    return detection_product
+
