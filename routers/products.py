@@ -95,21 +95,21 @@ async def update_images_product(product_id: str, item: Annotated[
         image_paths.append(item_image.url)
     await product_ai.add_or_update_product(item.collection_name, product_id, item.product_name, image_paths, image_ids)
 
-@router.delete("/{product_name}/images", summary="Xóa toàn bộ ảnh của một sản phẩm trong mô hình", description="Dịch vụ xóa toàn bộ ảnh sản phẩm dựa theo tên sản phẩm và tên danh mục")
-async def delete_images_product(product_name: str, collection_name: str):
+@router.delete("/{product_id}/images", summary="Xóa toàn bộ ảnh của một sản phẩm trong mô hình", description="Dịch vụ xóa toàn bộ ảnh sản phẩm dựa theo id sản phẩm và tên danh mục")
+async def delete_images_product(product_id: str, collection_name: str):
     if collection_name is None or collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
-    if product_name is None or product_name == "":
-        raise HTTPException(status_code=404, detail="Product name is not empty")
-    await product_ai.delete_product(collection_name, product_name)
+    if product_id is None or product_id == "":
+        raise HTTPException(status_code=404, detail="Product id is not empty")
+    await product_ai.delete_all_images_product(collection_name, product_id)
 
-@router.delete("/{product_name}", summary="Xóa sản phẩm khỏi mô hình", description="Dịch vụ xóa sản phẩm khỏi mô hình học máy")
-async def delete_product(product_name: str, collection_name: str):
+@router.delete("/{product_id}", summary="Xóa sản phẩm khỏi mô hình", description="Dịch vụ xóa sản phẩm khỏi mô hình học máy")
+async def delete_product(product_id: str, collection_name: str):
     if collection_name is None or collection_name == "":
         raise HTTPException(status_code=404, detail="Collection name is not empty")
-    if product_name is None or product_name == "":
-        raise HTTPException(status_code=404, detail="Product name is not Empty")
-    await product_ai.delete_product(collection_name, product_name)
+    if product_id is None or product_id == "":
+        raise HTTPException(status_code=404, detail="Product id is not Empty")
+    await product_ai.delete_product(collection_name, product_id)
 
 @router.post("/count_recognition", summary="Đếm số lượng sản phẩm", description="Dịch vụ trả về số lượng sản phẩm có trong ảnh chụp gian hàng trưng bày sản phẩm")
 async def count_recognition(item: Annotated[
