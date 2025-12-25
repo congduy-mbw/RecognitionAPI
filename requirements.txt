@@ -1,6 +1,6 @@
 fastapi[standard]==0.113.0
 pydantic==2.8.0
-git+https://bugs.ekgis.vn/deepvision/deepvision_python_sdk@develop
+git+https://github.com/EOV-Solutions/deepvision_python_sdk
 pyarrow
 urllib3==1.26.15 
 requests-toolbelt==0.10.1
