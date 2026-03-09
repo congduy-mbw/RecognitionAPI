@@ -1,18 +1,36 @@
 from fastapi import APIRouter, HTTPException, Body
 from typing import Annotated
 from controllers import product_ai
-from models.product import ProductCreateIn, ProductCreateOut, ImageInfo, ProductUpdateNameIn, ProductUpdateImageIn, ProductRecognitionCountIn, ProductShelfAvailibilityIn
+from models.product import ProductCreateIn, ProductCreateOut, ImageInfo, ProductUpdateNameIn, ProductUpdateImageIn, ProductRecognitionCountIn, ProductShelfAvailibilityIn, ProductByCollectionOut, ProductInfo, ProductByCollectionOut
 import uuid
 import base64
 import os
 import datetime
 import cv2
 import numpy as np
+from utils.handle_response import remove_base64
 
 router = APIRouter(
     prefix="/products",
     tags=["Products"]
 )
+
+@router.get("", response_model=ProductByCollectionOut, summary="Lấy danh sách sản phẩm theo danh mục", description="Dịch vụ trả về danh sách sản phẩm có trong mô hình học máy dựa theo tên danh mục")
+async def get_products_by_collection(collection_name: str):
+    if collection_name is None or collection_name == "":
+        raise HTTPException(status_code=404, detail="Collection name is not empty")
+    products = await product_ai.get_products_by_collection(collection_name)
+    total = 0
+    product_list = []
+    if products.get("status") == "completed":
+        for product in products.get("result", []):
+            product_list.append(ProductInfo(product_name=product["product_name"]))
+        total = len(product_list)
+ 
+    return ProductByCollectionOut(
+        total=total,
+        products=product_list
+    )
 
 @router.post("", response_model=ProductCreateOut, summary="Thêm sản phẩm cho mô hình", description="Dịch vụ thêm sản phẩm với ảnh sản phẩm vào mô hình học máy")
 async def create_product(item: Annotated[
@@ -147,6 +165,7 @@ async def count_recognition(item: Annotated[
         #         cv2.putText(image, label, text_position, cv2.FONT_HERSHEY_SIMPLEX, 
         #             fontScale=0.8, color=(0, 255, 0), thickness=2)
         #         cv2.imwrite(f"{UPLOAD_DIRECTORY}/image_bbox_{time_string}.png", image)
+        remove_base64(product_count)
         return product_count
     else:
         raise HTTPException(status_code=500, detail="Error Server AI: " + str(product_count))
@@ -179,4 +198,3 @@ async def detect_product_from_image(image_path: Annotated[
 ]):
     detection_product = await product_ai.detect_product_from_image(image_path)
     return detection_product
-

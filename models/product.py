@@ -9,6 +9,13 @@ class ProductBase(BaseModel):
     collection_name: str
     product_name: str
 
+class ProductInfo(BaseModel):
+    product_name: str
+
+class ProductByCollectionOut(BaseModel):
+    total: int
+    products: list[ProductInfo]
+
 class ProductCreateIn(ProductBase):
     image_paths: list[str]
 

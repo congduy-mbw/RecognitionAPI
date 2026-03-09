@@ -7,6 +7,10 @@ deep_vision: DeepVision = DeepVision(vectordb_dir=PROJECT_ROOT)
 product_recognition: ProductRecognitionService = deep_vision.init_product_recognition_service(RECOGNITION_API_KEY)
 count_recognition: ProductCountService = deep_vision.init_product_count_service(RECOGNITION_API_KEY)
 
+#Lấy danh sách sản phẩm theo tên danh mục
+async def get_products_by_collection(collection_name: str):
+    products: Products = product_recognition.get_products()
+    return products.list(collection_name=collection_name)
 
 #Với id ảnh mà không có thì sẽ thêm mới, nếu có thì sẽ tự động cập nhật
 async def add_or_update_product(collection_name: str, product_id: str, product_name: str, image_paths: list[str], image_ids: list[str]):
