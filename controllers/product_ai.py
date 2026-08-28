@@ -1,3 +1,4 @@
+import asyncio
 from config import PROJECT_ROOT, RECOGNITION_API_KEY
 from deepvision import DeepVision
 from deepvision.service import ProductRecognitionService, ProductCountService, OnShelfAvailabilityService, ProductDetectionService
@@ -12,11 +13,53 @@ async def get_products_by_collection(collection_name: str):
     products: Products = product_recognition.get_products()
     return products.list(collection_name=collection_name)
 
+#SDK gọi requests.get/requests.post không có timeout -> 1 ảnh mạng chậm/server treo có thể
+#treo vô thời hạn. Giới hạn thời gian xử lý mỗi ảnh để không kéo treo cả request.
+IMAGE_PROCESSING_TIMEOUT_SECONDS = 90
+
 #Với id ảnh mà không có thì sẽ thêm mới, nếu có thì sẽ tự động cập nhật
+#Xử lý song song từng ảnh một để biết chính xác ảnh nào thành công/thất bại
 async def add_or_update_product(collection_name: str, product_id: str, product_name: str, image_paths: list[str], image_ids: list[str]):
-    products: Products = product_recognition.get_products()
-    product_res = products.add(collection_name, product_id, product_name, image_ids, image_paths)
-    return product_res
+    product_collection: ProductCollection = product_recognition.get_product_collection()
+
+    async def add_one_image(image_id: str, image_path: str) -> dict:
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(product_collection.add, collection_name, image_id, image_path, product_id, product_name),
+                timeout=IMAGE_PROCESSING_TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            return {
+                "id": image_id, "url": image_path, "status": "failed",
+                "error": "Timeout sau %ds khi gọi DeepVision (tải ảnh hoặc embedding không phản hồi)" % IMAGE_PROCESSING_TIMEOUT_SECONDS
+            }
+        status = result.get("status", "failed")
+        error = None if status == "completed" else str(result.get("error") or result.get("result"))
+        return {"id": image_id, "url": image_path, "status": status, "error": error}
+
+    return await asyncio.gather(*[
+        add_one_image(image_id, image_path)
+        for image_id, image_path in zip(image_ids, image_paths)
+    ])
+
+#Xóa một ảnh sản phẩm theo image_id
+async def delete_image_by_id(collection_name: str, image_id: str):
+    product_collection: ProductCollection = product_recognition.get_product_collection()
+    return product_collection.delete(collection_name, image_id)
+
+#Lấy danh sách ảnh (image_id) đã lưu cho một sản phẩm trong danh mục
+#Lưu ý: mỗi ảnh khi add có thể sinh nhiều vector embedding tăng cường (data augmentation)
+#dùng chung image_id trong vector DB, nên list_examples() trả nhiều dòng/1 ảnh -> phải gộp theo image_id
+async def get_images_by_product(collection_name: str, product_id: str):
+    product_collection: ProductCollection = product_recognition.get_product_collection()
+    result = product_collection.list(collection_name)
+    if result.get("status") != "completed":
+        return result
+    images = {}
+    for item in result.get("result", []):
+        if item.get("product_id") == product_id and item.get("image_id") not in images:
+            images[item.get("image_id")] = item
+    return {"status": "completed", "result": list(images.values())}
 
 #Cập nhật thông tin tên của sản phẩm
 async def update_name_product(collection_name: str, product_id: str, new_name: str):

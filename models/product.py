@@ -19,9 +19,15 @@ class ProductByCollectionOut(BaseModel):
 class ProductCreateIn(ProductBase):
     image_paths: list[str]
 
+class ImageResultInfo(BaseModel):
+    id: str
+    url: str
+    status: str
+    error: Union[str, None] = None
+
 class ProductCreateOut(ProductBase):
     product_id: str
-    image_paths: list[ImageInfo]
+    image_paths: list[ImageResultInfo]
 
 class ProductUpdateNameIn(BaseModel):
     collection_name: str
@@ -31,6 +37,21 @@ class ProductUpdateImageIn(BaseModel):
     collection_name: str
     product_name: str
     image_paths: list[ImageInfo]
+
+class ProductUpdateImageOut(BaseModel):
+    collection_name: str
+    product_name: str
+    product_id: str
+    image_paths: list[ImageResultInfo]
+
+class ProductImageInfo(BaseModel):
+    image_id: str
+    product_name: str
+
+class ProductImagesByProductOut(BaseModel):
+    product_id: str
+    total: int
+    images: list[ProductImageInfo]
 
 class ProductRecognitionCountIn(BaseModel):
     collection_name: str

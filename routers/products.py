@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body
 from typing import Annotated
 from controllers import product_ai
-from models.product import ProductCreateIn, ProductCreateOut, ImageInfo, ProductUpdateNameIn, ProductUpdateImageIn, ProductRecognitionCountIn, ProductShelfAvailibilityIn, ProductByCollectionOut, ProductInfo, ProductByCollectionOut
+from models.product import ProductCreateIn, ProductCreateOut, ImageInfo, ImageResultInfo, ProductUpdateNameIn, ProductUpdateImageIn, ProductUpdateImageOut, ProductRecognitionCountIn, ProductShelfAvailibilityIn, ProductByCollectionOut, ProductInfo, ProductByCollectionOut, ProductImageInfo, ProductImagesByProductOut
 import uuid
 import base64
 import os
@@ -52,20 +52,14 @@ async def create_product(item: Annotated[
     if item.product_name is None or item.product_name == "":
         raise HTTPException(status_code=404, detail="Product name is not empty")
     product_id = str(uuid.uuid4())
-    image_ids: list[str] = []
-    images_info: list[ImageInfo] = []
-    for image_path in item.image_paths:
-        image_id = str(uuid.uuid4())
-        image_ids.append(image_id)
-        image_info: ImageInfo = ImageInfo(id=image_id, url=image_path)
-        images_info.append(image_info)
-    await product_ai.add_or_update_product(item.collection_name, product_id, item.product_name, item.image_paths, image_ids)
+    image_ids: list[str] = [str(uuid.uuid4()) for _ in item.image_paths]
+    results = await product_ai.add_or_update_product(item.collection_name, product_id, item.product_name, item.image_paths, image_ids)
     return ProductCreateOut(
         collection_name = item.collection_name,
         product_id = product_id,
         product_name = item.product_name,
-        image_paths = images_info
-    )  
+        image_paths = [ImageResultInfo(**r) for r in results]
+    )
 
 @router.put("/{product_id}/name", summary="Cập nhật tên sản phẩm trong mô hình", description="Dịch vụ cập nhật lại tên sản phẩm trong mô hình dựa theo mã sản phẩm đã trả về khi tạo")
 async def update_name_product(product_id: str, item: Annotated[
@@ -83,7 +77,7 @@ async def update_name_product(product_id: str, item: Annotated[
         raise HTTPException(status_code=404, detail="Product name is not empty")
     await product_ai.update_name_product(item.collection_name, product_id, item.product_new_name)
 
-@router.put("/{product_id}/images", summary="Cập nhật ảnh sản phẩm trong mô hình", description="Dịch vụ cập nhật ảnh sản phẩm dựa theo mã sản phẩm. Nếu id ảnh sản phẩm không có thì mô hình hiểu là thêm mới ảnh sản phẩm")
+@router.put("/{product_id}/images", response_model=ProductUpdateImageOut, summary="Cập nhật ảnh sản phẩm trong mô hình", description="Dịch vụ cập nhật ảnh sản phẩm dựa theo mã sản phẩm. Nếu id ảnh sản phẩm không có thì mô hình hiểu là thêm mới ảnh sản phẩm. Mỗi ảnh được xử lý song song và trả về status thành công/thất bại riêng")
 async def update_images_product(product_id: str, item: Annotated[
     ProductUpdateImageIn,
     Body(examples=[
@@ -111,7 +105,13 @@ async def update_images_product(product_id: str, item: Annotated[
         else:
             image_ids.append(item_image.id)
         image_paths.append(item_image.url)
-    await product_ai.add_or_update_product(item.collection_name, product_id, item.product_name, image_paths, image_ids)
+    results = await product_ai.add_or_update_product(item.collection_name, product_id, item.product_name, image_paths, image_ids)
+    return ProductUpdateImageOut(
+        collection_name=item.collection_name,
+        product_name=item.product_name,
+        product_id=product_id,
+        image_paths=[ImageResultInfo(**r) for r in results]
+    )
 
 @router.delete("/{product_id}/images", summary="Xóa toàn bộ ảnh của một sản phẩm trong mô hình", description="Dịch vụ xóa toàn bộ ảnh sản phẩm dựa theo id sản phẩm và tên danh mục")
 async def delete_images_product(product_id: str, collection_name: str):
@@ -120,6 +120,29 @@ async def delete_images_product(product_id: str, collection_name: str):
     if product_id is None or product_id == "":
         raise HTTPException(status_code=404, detail="Product id is not empty")
     await product_ai.delete_all_images_product(collection_name, product_id)
+
+@router.delete("/images/{image_id}", summary="Xóa một ảnh sản phẩm theo id", description="Dịch vụ xóa một ảnh cụ thể khỏi mô hình dựa theo image_id, trong phạm vi một danh mục. Lưu ý: SDK xóa theo image_id trong toàn bộ danh mục, không kiểm tra ảnh có thuộc đúng sản phẩm nào")
+async def delete_image_by_id(image_id: str, collection_name: str):
+    if collection_name is None or collection_name == "":
+        raise HTTPException(status_code=404, detail="Collection name is not empty")
+    if image_id is None or image_id == "":
+        raise HTTPException(status_code=404, detail="Image id is not empty")
+    result = await product_ai.delete_image_by_id(collection_name, image_id)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail="Error Server AI: " + str(result))
+    return result
+
+@router.get("/{product_id}/images", response_model=ProductImagesByProductOut, summary="Lấy danh sách ảnh theo sản phẩm", description="Dịch vụ trả về danh sách image_id các ảnh đã lưu cho một sản phẩm trong danh mục. SDK không lưu lại URL ảnh gốc nên chỉ trả về image_id")
+async def get_images_by_product(product_id: str, collection_name: str):
+    if collection_name is None or collection_name == "":
+        raise HTTPException(status_code=404, detail="Collection name is not empty")
+    if product_id is None or product_id == "":
+        raise HTTPException(status_code=404, detail="Product id is not empty")
+    result = await product_ai.get_images_by_product(collection_name, product_id)
+    if result.get("status") != "completed":
+        raise HTTPException(status_code=404, detail="Error Server AI: " + str(result))
+    images = [ProductImageInfo(image_id=i["image_id"], product_name=i["product_name"]) for i in result.get("result", [])]
+    return ProductImagesByProductOut(product_id=product_id, total=len(images), images=images)
 
 @router.delete("/{product_id}", summary="Xóa sản phẩm khỏi mô hình", description="Dịch vụ xóa sản phẩm khỏi mô hình học máy")
 async def delete_product(product_id: str, collection_name: str):
