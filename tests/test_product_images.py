@@ -57,8 +57,8 @@ def test_update_images_returns_status_per_image_and_preserves_given_id(monkeypat
     assert good["status"] == "completed"
     assert good["error"] is None
 
-    # ảnh không có id -> tự sinh id mới (case "thêm mới"), và báo đúng lỗi từ SDK
-    assert bad["id"] and bad["id"] != "existing-id-1"
+    # ảnh không có id, add thất bại -> id trả về null (không có dữ liệu nào thực sự được lưu)
+    assert bad["id"] is None
     assert bad["status"] == "failed"
     assert "No product found" in bad["error"]
 
@@ -93,7 +93,9 @@ def test_add_or_update_product_image_timeout_does_not_hang_whole_request(monkeyp
     ok = next(i for i in body["image_paths"] if i["url"].endswith("ok.png"))
     stuck = next(i for i in body["image_paths"] if i["url"].endswith("stuck.png"))
     assert ok["status"] == "completed"
+    assert ok["id"] is not None
     assert stuck["status"] == "failed"
+    assert stuck["id"] is None
     assert "Timeout" in stuck["error"]
 
 

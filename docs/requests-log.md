@@ -87,3 +87,15 @@ Xem quy trình bắt buộc tại [CLAUDE.md](../CLAUDE.md#6-quy-trình-làm-vi�
 - **Thay đổi:** `controllers/product_ai.py` — `IMAGE_PROCESSING_TIMEOUT_SECONDS` từ `30` lên `90` (bạn chọn 90s, các lựa chọn khác đưa ra là 60s/120s).
 - **Test:** Không cần sửa test (test dùng `monkeypatch` hạ timeout xuống 0.05s để chạy nhanh, không phụ thuộc giá trị thật 30/90). Chạy lại `python -m pytest tests/test_product_images.py -v` → **11/11 PASSED**.
 - **Trạng thái:** Hoàn tất. Nếu vẫn còn ảnh bị timeout ở mức 90s, cần bạn xác nhận có tăng tiếp không, hoặc cân nhắc đây là dấu hiệu server ảnh/dịch vụ embedding thật sự chậm bất thường (không chỉ do thiếu timeout).
+
+---
+
+## 2026-08-28 — Fix: ảnh "failed" vẫn trả về id (mâu thuẫn logic)
+
+- **Bug do bạn phát hiện:** Ảnh có `status: "failed"` nhưng vẫn có `id` trong response — trong khi id chỉ nên có khi thêm/cập nhật thành công.
+- **Nguyên nhân:** SDK (`ProductCollection.add()`) yêu cầu app **tự sinh `image_id` trước** rồi mới gọi thêm (không phải SDK cấp id sau khi lưu xong), nên code cũ echo lại đúng id đã dùng để gọi bất kể thành công hay thất bại.
+- **Đã thống nhất & thực hiện:** `id` chỉ trả về giá trị thật khi `status == "completed"`; khi `"failed"` thì `id: null` (ảnh vẫn xuất hiện trong danh sách kèm `url`, `status`, `error` để biết ảnh nào lỗi, lỗi gì).
+- **Thay đổi code:** `models/product.py` (`ImageResultInfo.id` đổi sang `Optional[str] = None`); `controllers/product_ai.py` (`add_one_image` trả `id: None` khi status khác `"completed"`, cả nhánh timeout lẫn nhánh SDK failed); `CLAUDE.md` (ghi chú lại quy ước này).
+- **Test:** Cập nhật `tests/test_product_images.py` — assert `id is None` cho ảnh failed (cả case SDK báo failed và case timeout). Chạy `python -m pytest tests/test_product_images.py -v` → **11/11 PASSED**.
+- **Cách bạn tự kiểm thử lại:** Gọi `POST /products` hoặc `PUT /products/{id}/images` với ít nhất 1 ảnh chắc chắn lỗi (vd URL ảnh không có sản phẩm nào) → kiểm tra ảnh đó trong response có `"id": null`, còn ảnh thành công vẫn có `id` bình thường.
+- **Trạng thái:** Đã code + test tự động pass. Chờ bạn xác nhận lại trên server thật.

@@ -20,7 +20,7 @@ class ProductCreateIn(ProductBase):
     image_paths: list[str]
 
 class ImageResultInfo(BaseModel):
-    id: str
+    id: Union[str, None] = None
     url: str
     status: str
     error: Union[str, None] = None

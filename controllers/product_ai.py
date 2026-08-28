@@ -30,12 +30,14 @@ async def add_or_update_product(collection_name: str, product_id: str, product_n
             )
         except asyncio.TimeoutError:
             return {
-                "id": image_id, "url": image_path, "status": "failed",
+                "id": None, "url": image_path, "status": "failed",
                 "error": "Timeout sau %ds khi gọi DeepVision (tải ảnh hoặc embedding không phản hồi)" % IMAGE_PROCESSING_TIMEOUT_SECONDS
             }
         status = result.get("status", "failed")
         error = None if status == "completed" else str(result.get("error") or result.get("result"))
-        return {"id": image_id, "url": image_path, "status": status, "error": error}
+        #id chỉ được trả về khi thêm/cập nhật thành công, vì SDK yêu cầu app tự sinh id trước
+        #khi gọi (không phải id do SDK cấp sau khi lưu xong) nên id không có ý nghĩa khi thất bại
+        return {"id": image_id if status == "completed" else None, "url": image_path, "status": status, "error": error}
 
     return await asyncio.gather(*[
         add_one_image(image_id, image_path)
